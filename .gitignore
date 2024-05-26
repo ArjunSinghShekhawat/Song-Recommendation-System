@@ -128,8 +128,6 @@ ENV/
 chicken/
 env.bak/
 venv.bak/
-.notebooks
-notebooks/
 songs/
 .songs
 
