@@ -12,6 +12,12 @@ from exception import CustomException
 import sys
 warnings.filterwarnings('ignore')
 
+st.set_page_config(
+    page_title="Musicify || Music Recommendation System",  # Set custom page title
+    page_icon="favicon.ico",  # Set URL of the favicon
+    layout="wide"  # Set layout to wide mode if desired
+)
+
 CLIENT_ID = "70a9fb89662f4dac8d07321b259eaad7"
 CLIENT_SECRET = "4d6710460d764fbbb8d8753dc094d131"
 
@@ -20,11 +26,11 @@ client_credentials_manager = SpotifyClientCredentials(client_id=CLIENT_ID, clien
 sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
 
 ##Songs data
-music_dict = pickle.load(open(r'C:\Users\shekh\OneDrive\Desktop\SongRecommendationSystem\artifacts\musicrec.pkl', 'rb'))
+music_dict = pickle.load(open(r'artifacts/musicrec.pkl', 'rb'))
 music = pd.DataFrame(music_dict)
 
 ## Similarity distance between songs
-similarity = pickle.load(open(r'C:\Users\shekh\OneDrive\Desktop\SongRecommendationSystem\artifacts\similarity.pkl', 'rb'))
+similarity = pickle.load(open(r'artifacts/similarity.pkl', 'rb'))
 
 
 text_style = (
@@ -227,8 +233,9 @@ def fetch_song_info(track_name):
                     release_date = track["album"]["release_date"]
                     popularity = track["popularity"]
                     preview_url = track["preview_url"]
+                    spotify_url = track["external_urls"]["spotify"]
                     
-                    return track_name, artist_name, album_name, release_date, popularity, preview_url
+                    return track_name, artist_name, album_name, release_date, popularity, preview_url, spotify_url
                 else:
                     return "None"
             else:
@@ -236,10 +243,8 @@ def fetch_song_info(track_name):
         else:
             return "None"
     except Exception as e:
-
         logging.info("Error Occure {}".format(e))
         raise CustomException(e, sys)
-
 
 st.markdown(
     """
@@ -255,24 +260,36 @@ st.markdown(
 )
 
 #Project title
-st.markdown("<h1 class='title'>Music Recommendation System</h1>", unsafe_allow_html=True)
+st.markdown("<h1 class='title'>Musicify - Music Recommendation System</h1>", unsafe_allow_html=True)
 selected_music_name = st.selectbox('Select a music you like', music['title'].values)
 
 
-if st.button('Recommend',):
+if st.button('Recommend'):
     st.write(f'</br></br>', unsafe_allow_html=True)
     
-    #Fetch All Data from api
+    # Fetch All Data from API
     with st.spinner('Fetching recommendations...'):
         names, posters = recommend(selected_music_name)
-        name,artist_name,album_name,release_date,popularity,preview_url = fetch_song_info(selected_music_name)
+        song_info = fetch_song_info(selected_music_name)
+        if len(song_info) == 7:
+            name, artist_name, album_name, release_date, popularity, preview_url, spotify_url = song_info
+        else:
+            name = artist_name = album_name = release_date = popularity = preview_url = spotify_url = None
     
-    #User Enter movie
-    col1, col2,col3 = st.columns(3)
+    # Provide default values if any info is None
+    name = name or "N/A"
+    artist_name = artist_name or "Unknown Artist"
+    album_name = album_name or "Unknown Album"
+    release_date = release_date or "Unknown Release Date"
+    popularity = popularity or "Unknown Popularity"
+    url_to_use = spotify_url or preview_url or "#"
+
+    # Display User Selected Song Information
+    col1, col2, col3 = st.columns(3)
 
     with col1:
         st.write(f'<div style="font-weight: bold;font-size: 22px;color: #007bff;">{name}</div>', unsafe_allow_html=True)
-        st.image(posters[0], width=300)  
+        st.image(posters[0], width=300)
     with col2:
         st.write(f'<div style="{text_style} padding-top: 25px;">Song Name   : {name}</div></br>', unsafe_allow_html=True)
         st.write(f'<div style="{text_style}">Artist Name : {artist_name}</div></br>', unsafe_allow_html=True)
@@ -280,13 +297,12 @@ if st.button('Recommend',):
         st.write(f'<div style="{text_style}">Release Date: {release_date}</div></br>', unsafe_allow_html=True)
         st.write(f'<div style="{text_style}">Popularity  : {popularity}</div></br>', unsafe_allow_html=True)
     with col3:
-         if preview_url:
-            st.markdown(f'<style>{keyframes}</style>'f'<a href="{preview_url}" target="_blank" style="{link_style}">🎵 Click Here To Play 🎧 Music 🎵</a></br>',unsafe_allow_html=True)
-            st.markdown(f'</br></br><div style="{center_style}">👆</div></br></br>',unsafe_allow_html=True)
-    
-    logging.info("Successfully show user enter movie with information")
-    
-    #Recommended Movies
+        if url_to_use != "#":
+            st.markdown(f'<style>{keyframes}</style>'f'<a href="{url_to_use}" target="_blank" style="{link_style}"> <img src="https://cdn3.emoji.gg/emojis/SpotifyLogo.png" width="64px" height="64px" alt="SpotifyLogo"> 🎵 Listen Here 🎵</a></br>',unsafe_allow_html=True)
+
+    logging.info("Successfully displayed user-selected song with information")
+
+    # Recommended Songs
     st.markdown(f'<h1 style="{title_style}">Recommended Songs</h1></br>', unsafe_allow_html=True)
 
     col1, col2, col3, col4, col5 = st.columns(5)
@@ -294,20 +310,61 @@ if st.button('Recommend',):
 
     for i in range(1, 6):
         with columns[i - 1]:
-            st.write(f"<div style='color: hotpink;font-size:18px;font-weight:bold; text-align:center'>{names[i]}</div>", unsafe_allow_html=True)
-            st.image(posters[i])
-            
+            song_info = fetch_song_info(names[i])
+            if len(song_info) == 7:  # Ensure all values are present
+                name, artist_name, album_name, release_date, popularity, preview_url, spotify_url = song_info
+                # Provide default values if any info is None
+                name = name or "N/A"
+                artist_name = artist_name or "Unknown Artist"
+                album_name = album_name or "Unknown Album"
+                release_date = release_date or "Unknown Release Date"
+                popularity = popularity or "Unknown Popularity"
+                url_to_use = spotify_url or preview_url or "#"
+                st.write(f"<div style='color: hotpink;font-size:18px;font-weight:bold; text-align:center'>{name}</div>", unsafe_allow_html=True)
+                st.markdown(f"""
+                <div style="position: relative;">
+                    <img src="{posters[i]}" style="border-radius: 10px; width:250px;box-shadow: 2px 4px 8px rgba(0, 0, 0, 0.2);">
+                    <a href="{url_to_use}" target="_blank">
+                    <span class="ButtonInner-sc-14ud5tc-0 rVdSj encore-bright-accent-set" style="position: absolute; bottom: 10px; right: 10px; width: 50px; height: 50px;"><span aria-hidden="true" class="IconWrapper__Wrapper-sc-1hf1hjl-0 bjlVXn"><svg data-encore-id="icon" role="img" aria-hidden="true" viewBox="0 0 24 24" class="Svg-sc-ytk21e-0 bneLcE"><path d="m7.05 3.606 13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z" fill="#1ed760"></path></svg></span></span>
+                    </a>
+                </div>""", unsafe_allow_html=True)
+
     st.write(f'</br></br>', unsafe_allow_html=True)
 
     col1, col2, col3, col4, col5 = st.columns(5)
     columns = [col1, col2, col3, col4, col5]
-    
+
     for i, col in enumerate(columns):  
         with col:
-            st.write(f"<div style='color: hotpink;font-size:18px;font-weight:bold;text-align:center'>{names[i+6]}</div>", unsafe_allow_html=True)
-            st.image(posters[i + 6])
+            song_info = fetch_song_info(names[i+6])
+            if len(song_info) == 7:  # Ensure all values are present
+                name, artist_name, album_name, release_date, popularity, preview_url, spotify_url = song_info
+                # Provide default values if any info is None
+                name = name or "N/A"
+                artist_name = artist_name or "Unknown Artist"
+                album_name = album_name or "Unknown Album"
+                release_date = release_date or "Unknown Release Date"
+                popularity = popularity or "Unknown Popularity"
+                url_to_use = spotify_url or preview_url or "#"
+                st.write(f"<div style='color: hotpink;font-size:18px;font-weight:bold; text-align:center'>{name}</div>", unsafe_allow_html=True)
+                st.markdown(f"""
+                <div style="position: relative;">
+                    <img src="{posters[i+6]}" style="border-radius: 10px; width:250px;box-shadow: 2px 4px 8px rgba(0, 0, 0, 0.2);">
+                    <a href="{url_to_use}" target="_blank">
+                    <span class="ButtonInner-sc-14ud5tc-0 rVdSj encore-bright-accent-set" style="position: absolute; bottom: 10px; right: 10px; width: 50px; height: 50px;"><span aria-hidden="true" class="IconWrapper__Wrapper-sc-1hf1hjl-0 bjlVXn"><svg data-encore-id="icon" role="img" aria-hidden="true" viewBox="0 0 24 24" class="Svg-sc-ytk21e-0 bneLcE"><path d="m7.05 3.606 13.49 7.788a.7.7 0 0 1 0 1.212L7.05 20.394A.7.7 0 0 1 6 19.788V4.212a.7.7 0 0 1 1.05-.606z" fill="#1ed760"></path></svg></span></span>
+                    </a>
+                </div>""", unsafe_allow_html=True)
+    logging.info("Successfully displayed all recommended songs")
 
-    logging.info("Successfully show all resommended movies")
+
+
+
+
+
+
+
+
+
 
 
 ##Team Name 
